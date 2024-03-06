@@ -178,7 +178,7 @@ void bitonic_sort(int *arr, int size, int direction, queue_t *queue) {
         // set the number of merge tasks to be executed in the next level
         int level_count = size / count;
         set_level_count(queue, level_count);
-        printf("Number of merges needed in this level: %d", level_count);
+        fprintf(stdout, "Number of merges needed in this level: %d", level_count);
         fflush(stdout);
         // enqueue merge tasks for the next level
         for (int low_index = 0; low_index < size; low_index += count) {
@@ -189,7 +189,7 @@ void bitonic_sort(int *arr, int size, int direction, queue_t *queue) {
         }
         // wait for the current level to finish
         wait_level_end(queue);
-        printf(" --- done\n");
+        fprintf(stdout, " --- done\n");
     }
 }
 
@@ -221,32 +221,33 @@ int main(int argc, char *argv[]) {
     for (int fi = 1; fi < argc; fi++) {
         file = fopen(argv[fi], "rb");
         if (file == NULL) {
-            printf("Error: could not open file %s\n", argv[fi]);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Could not open file %s\n", argv[fi]);
+            return EXIT_FAILURE;
         }
 
         // read the size of the array
         int size;
         if (fread(&size, sizeof(int), 1, file) != 1) {
-            printf("Error: could not read the size of the array\n");
+            fprintf(stderr, "Could not read the size of the array\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
         // size must be power of 2
         if ((size & (size - 1)) != 0) {
-            printf("Error: The size of the array must be a power of 2\n");
+            fprintf(stderr, "The size of the array must be a power of 2\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
-        printf("Array size: %d\n", size);
+        fprintf(stdout, "Array size: %d\n", size);
 
         // allocate memory for the array
         int *arr = (int *) malloc(size * sizeof(int));
         if (arr == NULL) {
+            fprintf(stderr, "Could not allocate memory for the array\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
         // load array into memory
@@ -258,9 +259,10 @@ int main(int argc, char *argv[]) {
         // initialize the FIFO queue
         queue_t *queue = (queue_t *) malloc(sizeof(queue_t));
         if (queue == NULL) {
+            fprintf(stderr, "Could not allocate memory for the queue\n");
             free(arr);
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
         init_queue(queue);
 
@@ -268,13 +270,13 @@ int main(int argc, char *argv[]) {
         pthread_t threads[NUM_THREADS];
         for (int ti = 0; ti < NUM_THREADS; ti++) {
             if (pthread_create(&threads[ti], NULL, bitonic_merge_worker, queue) != 0) {
-                printf("Error: could not create thread %d/%d\n", ti + 1, NUM_THREADS);
-                fclose(file);
-                free(arr);
+                fprintf(stderr, "Could not create thread %d/%d\n", ti + 1, NUM_THREADS);
                 free(queue);
-                exit(EXIT_FAILURE);
+                free(arr);
+                fclose(file);
+                return EXIT_FAILURE;
             }
-            printf("Thread %d/%d was created\n", ti + 1, NUM_THREADS);
+            fprintf(stdout, "Thread %d/%d was created\n", ti + 1, NUM_THREADS);
         }
 
         // bitonic sort on the array in descending order
@@ -289,29 +291,30 @@ int main(int argc, char *argv[]) {
         // wait for threads to finish
         for (int ti = 0; ti < NUM_THREADS; ti++) {
             pthread_join(threads[ti], NULL);
-            printf("Thread %d/%d has finished\n", ti + 1, NUM_THREADS);
+            fprintf(stdout, "Thread %d/%d has finished\n", ti + 1, NUM_THREADS);
         }
 
         // print results
         if (size <= 32) {
-            printf("Sorted array:\n");
+            fprintf(stdout, "Sorted array:\n");
             for (int k = 0; k < size; k++) {
-                printf("%d: %d\n", k, arr[k]);
+                fprintf(stdout, "%d: %d\n", k, arr[k]);
             }
         } else {
-            printf("First 16:\n");
+            fprintf(stdout, "First 16:\n");
             for (int k = 0; k < 16; k++) {
-                printf("%d ", arr[k]);
+                fprintf(stdout, "%d ", arr[k]);
             }
-            printf("\n");
-            printf("Last 16:\n");
+            fprintf(stdout, "\n");
+            fprintf(stdout, "Last 16:\n");
             for (int k = size - 16; k < size; k++) {
-                printf("%d ", arr[k]);
+                fprintf(stdout, "%d ", arr[k]);
             }
-            printf("\n");
+            fprintf(stdout, "\n");
         }
+        free(queue);
         free(arr);
         fclose(file);
     }
-    return 0;
+    return EXIT_SUCCESS;
 }

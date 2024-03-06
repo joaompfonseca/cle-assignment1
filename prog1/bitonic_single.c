@@ -36,32 +36,33 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
         file = fopen(argv[i], "rb");
         if (file == NULL) {
-            printf("Error opening file %s\n", argv[i]);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Could not open file %s\n", argv[i]);
+            return EXIT_FAILURE;
         }
 
         // read the size of the array
         int size;
         if (fread(&size, sizeof(int), 1, file) != 1) {
-            printf("Error: could not read the size of the array\n");
+            fprintf(stderr, "Could not read the size of the array\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
         // size must be power of 2
         if ((size & (size - 1)) != 0) {
-            printf("Error: The size of the array must be a power of 2\n");
+            fprintf(stderr, "The size of the array must be a power of 2\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
-        printf("Array size: %d\n", size);
+        fprintf(stdout, "Array size: %d\n", size);
 
         // allocate memory for the array
         int *arr = (int *) malloc(size * sizeof(int));
         if (arr == NULL) {
+            fprintf(stderr, "Could not allocate memory for the array\n");
             fclose(file);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
         // load array into memory
@@ -75,24 +76,24 @@ int main(int argc, char *argv[]) {
 
         // print results
         if (size <= 32) {
-            printf("Sorted array:\n");
+            fprintf(stdout, "Sorted array:\n");
             for (int k = 0; k < size; k++) {
-                printf("%d: %d\n", k, arr[k]);
+                fprintf(stdout, "%d: %d\n", k, arr[k]);
             }
         } else {
-            printf("First 16:\n");
+            fprintf(stdout, "First 16:\n");
             for (int k = 0; k < 16; k++) {
-                printf("%d ", arr[k]);
+                fprintf(stdout, "%d ", arr[k]);
             }
-            printf("\n");
-            printf("Last 16:\n");
+            fprintf(stdout, "\n");
+            fprintf(stdout, "Last 16:\n");
             for (int k = size - 16; k < size; k++) {
-                printf("%d ", arr[k]);
+                fprintf(stdout, "%d ", arr[k]);
             }
-            printf("\n");
+            fprintf(stdout, "\n");
         }
         free(arr);
         fclose(file);
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
