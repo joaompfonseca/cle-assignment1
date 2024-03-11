@@ -18,6 +18,38 @@
 #include "shared.c"
 
 /**
+ *  \brief Prints the usage of the program.
+ *
+ *  \param cmd_name name of the command that started the program
+ */
+void printUsage(char *cmd_name) {
+    fprintf(stderr, "Usage: %s REQUIRED OPTIONS\n"
+                    "REQUIRED:\n"
+                    "-f --- input file with numbers\n"
+                    "OPTIONS:\n"
+                    "-h --- print this help\n"
+                    "-n --- number of worker threads (default is %d, minimum is 1)\n", cmd_name, N_WORKERS);
+}
+
+/**
+ *  \brief Gets the time elapsed since the last call to this function.
+ *
+ *  \return time elapsed in seconds
+ */
+static double get_delta_time(void) {
+    static struct timespec t0, t1;
+
+    // t0 is assigned the value of t1 from the previous call. if there is no previous call, t0 = t1 = 0
+    t0 = t1;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &t1) != 0) {
+        perror("clock_gettime");
+        exit(EXIT_FAILURE);
+    }
+    return (double) (t1.tv_sec - t0.tv_sec) + 1.0e-9 * (double) (t1.tv_nsec - t0.tv_nsec);
+}
+
+/**
  *  \brief Merges two halves of an integer array in the desired order.
  *
  *  \param arr array to be merged
@@ -116,13 +148,17 @@ static void *bitonic_distributor(void *arg) {
     // close the file
     fclose(file);
 
+    // START TIME
+    get_delta_time();
+
     // distribute merge tasks for each level of the bitonic sort
     if (size > 1) {
         for (int count = 2; count <= size; count *= 2) {
             // set the number of merge tasks to be executed in the next level
             int level_count = size / count;
             set_level_count(queue, level_count);
-            fprintf(stdout, "[DIST] Level merges: %d\n", level_count);
+            fprintf(stdout, "[DIST] Lvl merges: %d", level_count);
+            fflush(stdout);
             // enqueue merge tasks for the next level
             for (int low_index = 0; low_index < size; low_index += count) {
                 // sub_direction is the direction of the sub-merge
@@ -132,29 +168,19 @@ static void *bitonic_distributor(void *arg) {
             }
             // wait for the current level to finish
             wait_level_end(queue);
-            fprintf(stdout, "[DIST] Level done\n");
+            fprintf(stdout, " --- done\n");
         }
     }
+
+    // END TIME
+    fprintf(stdout, "[DIST] Time elapsed: %.9f seconds\n", get_delta_time());
+
     // send termination tasks to worker threads
     while (n_workers-- > 0) {
         worker_task_t task = {.arr =  NULL};
         enqueue(queue, task);
     }
     return (void *) EXIT_SUCCESS;
-}
-
-/**
- *  \brief Prints the usage of the program.
- *
- *  \param cmd_name name of the command that started the program
- */
-void printUsage(char *cmd_name) {
-    fprintf(stderr, "Usage: %s REQUIRED OPTIONS\n"
-                    "REQUIRED:\n"
-                    "-f --- input file with numbers\n"
-                    "OPTIONS:\n"
-                    "-h --- print this help\n"
-                    "-n --- number of worker threads (default is %d, minimum is 1)\n", cmd_name, N_WORKERS);
 }
 
 /**
@@ -241,13 +267,14 @@ int main(int argc, char *argv[]) {
     pthread_t workers[n_workers];
     for (int i = 0; i < n_workers; i++) {
         if (pthread_create(&workers[i], NULL, bitonic_worker, shared) != 0) {
-            fprintf(stderr, "[MAIN] Could not create worker thread %d/%d\n", i + 1, n_workers);
+            fprintf(stderr, "[MAIN] Could not create worker thread %d\n", i + 1);
             free(shared);
             return EXIT_FAILURE;
         } else {
-            fprintf(stdout, "[MAIN] Worker thread %d/%d has been created\n", i + 1, n_workers);
+            fprintf(stdout, "[MAIN] Worker threads have been created (%d/%d)\r", i + 1, n_workers);
         }
     }
+    fprintf(stdout, "\n");
 
     // wait for threads to finish
     void *ptr_retcode_void;
@@ -265,14 +292,15 @@ int main(int argc, char *argv[]) {
         pthread_join(workers[i], &ptr_retcode_void);
         ptr_retcode_int = (int *) ptr_retcode_void;
         if (ptr_retcode_int != EXIT_SUCCESS) {
-            fprintf(stderr, "[MAIN] Worker thread %d/%d has failed with return code %d\n", i + 1, n_workers,
+            fprintf(stderr, "[MAIN] Worker thread %d has failed with return code %d\n", i + 1,
                     *ptr_retcode_int);
             free(shared);
             return EXIT_FAILURE;
         } else {
-            fprintf(stdout, "[MAIN] Worker thread %d/%d has finished\n", i + 1, n_workers);
+            fprintf(stdout, "[MAIN] Worker threads have finished (%d/%d)\r", i + 1, n_workers);
         }
     }
+    fprintf(stdout, "\n");
 
     // check if array is sorted
     int *arr = shared->arr;
