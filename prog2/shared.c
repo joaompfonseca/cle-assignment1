@@ -24,26 +24,36 @@
 
 #include "const.h"
 
-/** \brief Structure that represents a merge task to be executed by a thread */
+/** \brief Structure that represents a merge task to be executed by a worker thread */
 typedef struct {
     int *arr;
     int low_index;
     int count;
     int direction;
-} merge_task_t;
+} worker_task_t;
 
 /** \brief Structure that represents a FIFO queue */
 typedef struct {
-    merge_task_t tasks[QUEUE_SIZE];
+    worker_task_t tasks[QUEUE_SIZE];
     int front;
     int rear;
     int size;
-    int level_count; // number of tasks in the current merge level
+    int level_count;
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
-    pthread_cond_t level_done; // signal that the current merge level is done
+    pthread_cond_t level_done;
 } queue_t;
+
+/** \brief Structure that represents the shared area */
+typedef struct {
+    char* file_path;
+    int *arr;
+    int size;
+    int direction;
+    int n_workers;
+    queue_t *queue;
+} shared_t;
 
 /**
  * \brief Initializes the FIFO queue.
@@ -71,7 +81,7 @@ void init_queue(queue_t *queue) {
  * \param queue pointer to the queue
  * \param task merge task to be enqueued
  */
-void enqueue(queue_t *queue, merge_task_t task) {
+void enqueue(queue_t *queue, worker_task_t task) {
     pthread_mutex_lock(&queue->mutex);
     while (queue->size >= QUEUE_SIZE) {
         pthread_cond_wait(&queue->not_full, &queue->mutex);
@@ -92,12 +102,12 @@ void enqueue(queue_t *queue, merge_task_t task) {
  *
  * \return the dequeued merge task
  */
-merge_task_t dequeue(queue_t *queue) {
+worker_task_t dequeue(queue_t *queue) {
     pthread_mutex_lock(&queue->mutex);
     while (queue->size <= 0) {
         pthread_cond_wait(&queue->not_empty, &queue->mutex);
     }
-    merge_task_t task = queue->tasks[queue->front];
+    worker_task_t task = queue->tasks[queue->front];
     queue->front = (queue->front + 1) % QUEUE_SIZE;
     queue->size--;
     pthread_cond_signal(&queue->not_full);

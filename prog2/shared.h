@@ -25,17 +25,17 @@
 #include <pthread.h>
 #include "const.h"
 
-/** \brief Structure that represents a merge task to be executed by a thread */
+/** \brief Structure that represents a merge task to be executed by a worker thread */
 typedef struct {
     int *arr;
     int low_index;
     int count;
     int direction;
-} merge_task_t;
+} worker_task_t;
 
 /** \brief Structure that represents a FIFO queue */
 typedef struct {
-    merge_task_t tasks[QUEUE_SIZE];
+    worker_task_t tasks[QUEUE_SIZE];
     int front;
     int rear;
     int size;
@@ -45,6 +45,16 @@ typedef struct {
     pthread_cond_t not_full;
     pthread_cond_t level_done;
 } queue_t;
+
+/** \brief Structure that represents the shared area */
+typedef struct {
+    char *file_path;
+    int *arr;
+    int size;
+    int direction;
+    int n_workers;
+    queue_t *queue;
+} shared_t;
 
 /**
  * \brief Initializes the FIFO queue.
@@ -63,7 +73,7 @@ void init_queue(queue_t *queue);
  * \param queue pointer to the queue
  * \param task merge task to be enqueued
  */
-void enqueue(queue_t *queue, merge_task_t task);
+void enqueue(queue_t *queue, worker_task_t task);
 
 /**
  * \brief Dequeue a merge task from the FIFO queue.
@@ -74,7 +84,7 @@ void enqueue(queue_t *queue, merge_task_t task);
  *
  * \return the dequeued merge task
  */
-merge_task_t dequeue(queue_t *queue);
+worker_task_t dequeue(queue_t *queue);
 
 /**
  * \brief Sets the desired number of merge tasks to be executed in the next level.

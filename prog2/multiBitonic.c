@@ -43,54 +43,111 @@ void bitonic_merge(int *arr, int low_index, int count, int direction) {
 }
 
 /**
- *  \brief Sorts an integer array using the bitonic sort algorithm.
- *
- *  \param arr array to be sorted
- *  \param size number of elements in the array
- *  \param direction 0 for descending order, 1 for ascending order
- *  \param queue pointer to the FIFO queue
- */
-void bitonic_sort(int *arr, int size, int direction, queue_t *queue) {
-    if (size <= 1) return;
-    for (int count = 2; count <= size; count *= 2) {
-        // set the number of merge tasks to be executed in the next level
-        int level_count = size / count;
-        set_level_count(queue, level_count);
-        fprintf(stdout, "Number of merges needed in this level: %d", level_count);
-        fflush(stdout);
-        // enqueue merge tasks for the next level
-        for (int low_index = 0; low_index < size; low_index += count) {
-            // sub_direction is the direction of the sub-merge
-            int sub_direction = (low_index / count) % 2 == 0 != 0 == direction;
-            merge_task_t task = {arr, low_index, count, sub_direction};
-            enqueue(queue, task);
-        }
-        // wait for the current level to finish
-        wait_level_end(queue);
-        fprintf(stdout, " --- done\n");
-    }
-}
-
-/**
  *  \brief Worker thread function that executes merge tasks.
  *
  *  It dequeues a task from the FIFO queue and executes it.
  *  When there are no more tasks, the thread exits.
  *
- *  \param arg pointer to the FIFO queue
+ *  \param arg pointer to the shared area
  */
-static void *bitonic_merge_worker(void *arg) {
-    queue_t *queue = (queue_t *) arg;
+static void *bitonic_worker(void *arg) {
+    shared_t *shared = (shared_t *) arg;
+    queue_t *queue = shared->queue;
+
     while (1) {
-        merge_task_t task = dequeue(queue);
+        worker_task_t task = dequeue(queue);
         if (task.arr == NULL) break; // exit the thread
         bitonic_merge(task.arr, task.low_index, task.count, task.direction);
         // decrease the number of merge tasks to be executed in the current level
         decrement_level_count(queue);
     }
-    return NULL;
+    return (void *) EXIT_SUCCESS;
 }
 
+/**
+ *  \brief Distributor thread function that distributes merge tasks and executes the bitonic sort.
+ *
+ *  It enqueues a task to the FIFO queue for each level of the bitonic sort.
+ *  It waits for the worker threads to finish the level before enqueuing the next level.
+ *
+ *  \param arg pointer to the shared area
+ */
+static void *bitonic_distributor(void *arg) {
+    shared_t *shared = (shared_t *) arg;
+    char *file_path = shared->file_path;
+    int direction = shared->direction;
+    int n_workers = shared->n_workers;
+    queue_t *queue = shared->queue;
+
+    // open the file
+    FILE *file = fopen(file_path, "rb");
+    if (file == NULL) {
+        fprintf(stderr, "[DIST] Could not open file %s\n", file_path);
+        return (void *) EXIT_FAILURE;
+    }
+    // read the size of the array
+    int size;
+    if (fread(&size, sizeof(int), 1, file) != 1) {
+        fprintf(stderr, "[DIST] Could not read the size of the array\n");
+        fclose(file);
+        return (void *) EXIT_FAILURE;
+    }
+    // size must be power of 2
+    if ((size & (size - 1)) != 0) {
+        fprintf(stderr, "[DIST] The size of the array must be a power of 2\n");
+        fclose(file);
+        return (void *) EXIT_FAILURE;
+    }
+    shared->size = size;
+    fprintf(stdout, "[DIST] Array size: %d\n", size);
+    // allocate memory for the array
+    int *arr = (int *) malloc(size * sizeof(int));
+    if (arr == NULL) {
+        fprintf(stderr, "[DIST] Could not allocate memory for the array\n");
+        fclose(file);
+        return (void *) EXIT_FAILURE;
+    }
+    shared->arr = arr;
+    // load array into memory
+    int num, ni = 0;
+    while (fread(&num, sizeof(int), 1, file) == 1 && ni < size) {
+        arr[ni++] = num;
+    }
+    // close the file
+    fclose(file);
+
+    // distribute merge tasks for each level of the bitonic sort
+    if (size > 1) {
+        for (int count = 2; count <= size; count *= 2) {
+            // set the number of merge tasks to be executed in the next level
+            int level_count = size / count;
+            set_level_count(queue, level_count);
+            fprintf(stdout, "[DIST] Level merges: %d\n", level_count);
+            // enqueue merge tasks for the next level
+            for (int low_index = 0; low_index < size; low_index += count) {
+                // sub_direction is the direction of the sub-merge
+                int sub_direction = (low_index / count) % 2 == 0 != 0 == direction;
+                worker_task_t task = {arr, low_index, count, sub_direction};
+                enqueue(queue, task);
+            }
+            // wait for the current level to finish
+            wait_level_end(queue);
+            fprintf(stdout, "[DIST] Level done\n");
+        }
+    }
+    // send termination tasks to worker threads
+    while (n_workers-- > 0) {
+        worker_task_t task = {.arr =  NULL};
+        enqueue(queue, task);
+    }
+    return (void *) EXIT_SUCCESS;
+}
+
+/**
+ *  \brief Prints the usage of the program.
+ *
+ *  \param cmd_name name of the command that started the program
+ */
 void printUsage(char *cmd_name) {
     fprintf(stderr, "Usage: %s REQUIRED OPTIONS\n"
                     "REQUIRED:\n"
@@ -100,19 +157,31 @@ void printUsage(char *cmd_name) {
                     "-n --- number of worker threads (default is %d, minimum is 1)\n", cmd_name, N_WORKERS);
 }
 
+/**
+ *  \brief Main function of the program.
+ *
+ *  It processes the command line options, initializes the shared area, creates the distributor and worker threads,
+ *  waits for the threads to finish, checks if the array is sorted and frees the allocated memory.
+ *
+ *  \param argc number of command line arguments
+ *  \param argv array of command line arguments
+ *
+ *  \return EXIT_SUCCESS if the array is sorted, EXIT_FAILURE otherwise
+ */
 int main(int argc, char *argv[]) {
     // program arguments
     char *cmd_name = argv[0];
-    char *file_name = NULL;
+    char *file_path = NULL;
     int n_workers = N_WORKERS;
 
+    // process command line options
     int opt;
     do {
         switch ((opt = getopt(argc, argv, "f:n:"))) {
             case 'f':
-                file_name = optarg;
-                if (file_name == NULL) {
-                    fprintf(stderr, "Invalid file name\n");
+                file_path = optarg;
+                if (file_path == NULL) {
+                    fprintf(stderr, "[MAIN] Invalid file name\n");
                     printUsage(cmd_name);
                     return EXIT_FAILURE;
                 }
@@ -120,7 +189,7 @@ int main(int argc, char *argv[]) {
             case 'n':
                 n_workers = atoi(optarg);
                 if (n_workers < 1) {
-                    fprintf(stderr, "Invalid number of worker threads\n");
+                    fprintf(stderr, "[MAIN] Invalid number of worker threads\n");
                     printUsage(cmd_name);
                     return EXIT_FAILURE;
                 }
@@ -129,115 +198,96 @@ int main(int argc, char *argv[]) {
                 printUsage(cmd_name);
                 return EXIT_SUCCESS;
             case '?':
-                fprintf(stderr, "Invalid option -%c\n", optopt);
+                fprintf(stderr, "[MAIN] Invalid option -%c\n", optopt);
                 printUsage(cmd_name);
                 return EXIT_FAILURE;
             case -1:
                 break;
         }
     } while (opt != -1);
-    if (file_name == NULL) {
-        fprintf(stderr, "Input file not specified\n");
+    if (file_path == NULL) {
+        fprintf(stderr, "[MAIN] Input file not specified\n");
         printUsage(cmd_name);
         return EXIT_FAILURE;
     }
 
-    // open the file
-    FILE *file = fopen(file_name, "rb");
-    if (file == NULL) {
-        fprintf(stderr, "Could not open file %s\n", file_name);
+    // initialize the shared area
+    shared_t *shared = (shared_t *) malloc(sizeof(shared_t));
+    if (shared == NULL) {
+        fprintf(stderr, "[MAIN] Could not allocate memory for the shared area\n");
         return EXIT_FAILURE;
     }
-
-    // read the size of the array
-    int size;
-    if (fread(&size, sizeof(int), 1, file) != 1) {
-        fprintf(stderr, "Could not read the size of the array\n");
-        fclose(file);
-        return EXIT_FAILURE;
-    }
-
-    // size must be power of 2
-    if ((size & (size - 1)) != 0) {
-        fprintf(stderr, "The size of the array must be a power of 2\n");
-        fclose(file);
-        return EXIT_FAILURE;
-    }
-
-    fprintf(stdout, "Array size: %d\n", size);
-
-    // allocate memory for the array
-    int *arr = (int *) malloc(size * sizeof(int));
-    if (arr == NULL) {
-        fprintf(stderr, "Could not allocate memory for the array\n");
-        fclose(file);
-        return EXIT_FAILURE;
-    }
-
-    // load array into memory
-    int num, ni = 0;
-    while (fread(&num, sizeof(int), 1, file) == 1 && ni < size) {
-        arr[ni++] = num;
-    }
-
-    // initialize the FIFO queue
     queue_t *queue = (queue_t *) malloc(sizeof(queue_t));
     if (queue == NULL) {
-        fprintf(stderr, "Could not allocate memory for the queue\n");
-        free(arr);
-        fclose(file);
+        fprintf(stderr, "[MAIN] Could not allocate memory for the FIFO queue\n");
+        free(shared);
         return EXIT_FAILURE;
     }
     init_queue(queue);
+    shared->file_path = file_path;
+    shared->direction = 0; // descending order
+    shared->n_workers = n_workers;
+    shared->queue = queue;
 
-    // create threads
-    pthread_t workers[n_workers];
-    for (int ti = 0; ti < n_workers; ti++) {
-        if (pthread_create(&workers[ti], NULL, bitonic_merge_worker, queue) != 0) {
-            fprintf(stderr, "Could not create thread %d/%d\n", ti + 1, n_workers);
-            free(queue);
-            free(arr);
-            fclose(file);
-            return EXIT_FAILURE;
-        }
-        fprintf(stdout, "Thread %d/%d was created\n", ti + 1, n_workers);
+    // create distributor and worker threads
+    pthread_t distributor;
+    if (pthread_create(&distributor, NULL, bitonic_distributor, shared) != 0) {
+        fprintf(stderr, "[MAIN] Could not create distributor thread\n");
+        free(shared);
+        return EXIT_FAILURE;
+    } else {
+        fprintf(stdout, "[MAIN] Distributor thread has been created\n");
     }
-
-    // bitonic sort on the array in descending order
-    bitonic_sort(arr, size, 0, queue);
-
-    // send termination tasks to threads
-    for (int ti = 0; ti < n_workers; ti++) {
-        merge_task_t task = {.arr =  NULL};
-        enqueue(queue, task);
+    pthread_t workers[n_workers];
+    for (int i = 0; i < n_workers; i++) {
+        if (pthread_create(&workers[i], NULL, bitonic_worker, shared) != 0) {
+            fprintf(stderr, "[MAIN] Could not create worker thread %d/%d\n", i + 1, n_workers);
+            free(shared);
+            return EXIT_FAILURE;
+        } else {
+            fprintf(stdout, "[MAIN] Worker thread %d/%d has been created\n", i + 1, n_workers);
+        }
     }
 
     // wait for threads to finish
-    for (int ti = 0; ti < n_workers; ti++) {
-        pthread_join(workers[ti], NULL);
-        fprintf(stdout, "Thread %d/%d has finished\n", ti + 1, n_workers);
+    void *ptr_retcode_void;
+    int *ptr_retcode_int;
+    pthread_join(distributor, &ptr_retcode_void);
+    ptr_retcode_int = (int *) ptr_retcode_void;
+    if (ptr_retcode_int != EXIT_SUCCESS) {
+        fprintf(stderr, "[MAIN] Distributor thread has failed with return code %d\n", *ptr_retcode_int);
+        free(shared);
+        return EXIT_FAILURE;
+    } else {
+        fprintf(stdout, "[MAIN] Distributor thread has finished\n");
+    }
+    for (int i = 0; i < n_workers; i++) {
+        pthread_join(workers[i], &ptr_retcode_void);
+        ptr_retcode_int = (int *) ptr_retcode_void;
+        if (ptr_retcode_int != EXIT_SUCCESS) {
+            fprintf(stderr, "[MAIN] Worker thread %d/%d has failed with return code %d\n", i + 1, n_workers,
+                    *ptr_retcode_int);
+            free(shared);
+            return EXIT_FAILURE;
+        } else {
+            fprintf(stdout, "[MAIN] Worker thread %d/%d has finished\n", i + 1, n_workers);
+        }
     }
 
-    // print results
-    if (size <= 32) {
-        fprintf(stdout, "Sorted array:\n");
-        for (int k = 0; k < size; k++) {
-            fprintf(stdout, "%d: %d\n", k, arr[k]);
+    // check if array is sorted
+    int *arr = shared->arr;
+    int size = shared->size;
+    for (int i = 0; i < size - 1; i++) {
+        if (arr[i] < arr[i + 1]) {
+            fprintf(stderr, "[MAIN] Error in position %d between element %d and %d\n",
+                    i, arr[i], arr[i + 1]);
+            return EXIT_FAILURE;
         }
-    } else {
-        fprintf(stdout, "First 16:\n");
-        for (int k = 0; k < 16; k++) {
-            fprintf(stdout, "%d ", arr[k]);
-        }
-        fprintf(stdout, "\n");
-        fprintf(stdout, "Last 16:\n");
-        for (int k = size - 16; k < size; k++) {
-            fprintf(stdout, "%d ", arr[k]);
-        }
-        fprintf(stdout, "\n");
     }
-    free(queue);
-    free(arr);
-    fclose(file);
+    printf("[MAIN] The array is sorted, everything is OK! :)\n");
+
+    free(shared->arr);
+    free(shared->queue);
+    free(shared);
     return EXIT_SUCCESS;
 }
