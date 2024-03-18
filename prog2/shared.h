@@ -1,7 +1,7 @@
 /**
  *  \file shared.h (interface file)
  *
- *  \brief Assignment 1.2: Multi-threaded bitonic sort.
+ *  \brief Assignment 1.2: multithreaded bitonic sort.
  *
  *  This file contains the definition of a FIFO queue and the operations that it supports.
  *  The queue is used to store merge tasks to be executed by the worker threads.

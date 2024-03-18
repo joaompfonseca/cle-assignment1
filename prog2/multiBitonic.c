@@ -1,9 +1,9 @@
 /**
  *  \file multiBitonic.c (implementation file)
  *
- *  \brief Assignment 1.2: Multi-threaded bitonic sort.
+ *  \brief Assignment 1.2: multithreaded bitonic sort.
  *
- *  This file contains the definition of the multi-threaded bitonic sort algorithm.
+ *  This file contains the definition of the multithreaded bitonic sort algorithm.
  *
  *  \author João Fonseca - March 2024
  *  \author Rafael Gonçalves - March 2024
@@ -162,7 +162,7 @@ static void *bitonic_distributor(void *arg) {
             // enqueue merge tasks for the next level
             for (int low_index = 0; low_index < size; low_index += count) {
                 // sub_direction is the direction of the sub-merge
-                int sub_direction = (low_index / count) % 2 == 0 != 0 == direction;
+                int sub_direction = (((low_index / count) % 2 == 0) != 0) == direction;
                 worker_task_t task = {arr, low_index, count, sub_direction};
                 enqueue(queue, task);
             }
@@ -271,10 +271,9 @@ int main(int argc, char *argv[]) {
             free(shared);
             return EXIT_FAILURE;
         } else {
-            fprintf(stdout, "[MAIN] Worker threads have been created (%d/%d)\r", i + 1, n_workers);
+            fprintf(stdout, "[MAIN] Worker threads have been created (%d/%d)\n", i + 1, n_workers);
         }
     }
-    fprintf(stdout, "\n");
 
     // wait for threads to finish
     void *ptr_retcode_void;
@@ -297,10 +296,9 @@ int main(int argc, char *argv[]) {
             free(shared);
             return EXIT_FAILURE;
         } else {
-            fprintf(stdout, "[MAIN] Worker threads have finished (%d/%d)\r", i + 1, n_workers);
+            fprintf(stdout, "[MAIN] Worker threads have finished (%d/%d)\n", i + 1, n_workers);
         }
     }
-    fprintf(stdout, "\n");
 
     // check if array is sorted
     int *arr = shared->arr;

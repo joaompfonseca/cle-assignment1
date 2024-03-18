@@ -1,7 +1,7 @@
 /**
  *  \file const.h (interface file)
  *
- *  \brief Assignment 1.2: Multi-threaded bitonic sort.
+ *  \brief Assignment 1.2: multithreaded bitonic sort.
  *
  *  Default problem parameters.
  *
