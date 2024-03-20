@@ -9,12 +9,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3d82047c-6e99-4ae1-bbe1-ffad43635836" name="Changes" comment="cadd benchmark script">
+    <list default="true" id="3d82047c-6e99-4ae1-bbe1-ffad43635836" name="Changes" comment="change to professor approach">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prog2/multiBitonic.c" beforeDir="false" afterPath="$PROJECT_DIR$/prog2/multiBitonic.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prog2/shared.c" beforeDir="false" afterPath="$PROJECT_DIR$/prog2/shared.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prog2/shared.h" beforeDir="false" afterPath="$PROJECT_DIR$/prog2/shared.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -112,7 +109,7 @@
       <workItem from="1710268233788" duration="23000" />
       <workItem from="1710761453156" duration="4260000" />
       <workItem from="1710955923254" duration="2162000" />
-      <workItem from="1710963793209" duration="1685000" />
+      <workItem from="1710963793209" duration="1739000" />
     </task>
     <task id="LOCAL-00001" summary="add prog folders">
       <option name="closed" value="true" />
@@ -162,7 +159,15 @@
       <option name="project" value="LOCAL" />
       <updated>1710964228524</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="change to professor approach">
+      <option name="closed" value="true" />
+      <created>1710969090804</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1710969090804</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -175,7 +180,8 @@
     <MESSAGE value="change outputs" />
     <MESSAGE value="change error log" />
     <MESSAGE value="cadd benchmark script" />
-    <option name="LAST_COMMIT_MESSAGE" value="cadd benchmark script" />
+    <MESSAGE value="change to professor approach" />
+    <option name="LAST_COMMIT_MESSAGE" value="change to professor approach" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
