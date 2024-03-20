@@ -173,7 +173,7 @@ static void *bitonic_distributor(void *arg) {
     }
 
     // END TIME
-    fprintf(stdout, "[DIST] Time elapsed: %.9f seconds\n", get_delta_time());
+    fprintf(stdout, "[TIME] Time elapsed: %.9f seconds\n", get_delta_time());
 
     // send termination tasks to worker threads
     while (n_workers-- > 0) {
@@ -236,6 +236,8 @@ int main(int argc, char *argv[]) {
         printUsage(cmd_name);
         return EXIT_FAILURE;
     }
+    fprintf(stdout, "[MAIN] Input file: %s\n", file_path);
+    fprintf(stdout, "[MAIN] Worker threads: %d\n", n_workers);
 
     // initialize the shared area
     shared_t *shared = (shared_t *) malloc(sizeof(shared_t));
