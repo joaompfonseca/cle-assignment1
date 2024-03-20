@@ -9,7 +9,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3d82047c-6e99-4ae1-bbe1-ffad43635836" name="Changes" comment="change outputs">
+    <list default="true" id="3d82047c-6e99-4ae1-bbe1-ffad43635836" name="Changes" comment="cadd benchmark script">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/prog2/multiBitonic.c" beforeDir="false" afterPath="$PROJECT_DIR$/prog2/multiBitonic.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/prog2/shared.c" beforeDir="false" afterPath="$PROJECT_DIR$/prog2/shared.c" afterDir="false" />
@@ -43,6 +44,7 @@
     &quot;C/C++ File.bitonic_multi.c.executor&quot;: &quot;Run&quot;,
     &quot;C/C++ File.bitonic_single.c.executor&quot;: &quot;Run&quot;,
     &quot;C/C++ File.multiBitonic.c.executor&quot;: &quot;Run&quot;,
+    &quot;Makefile Target.compile.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
@@ -68,17 +70,28 @@
       <recent name="C:\Users\joaoo\OneDrive - Universidade de Aveiro\UC\CLE\Assignment\cle-assignment1\prog1\data" />
     </key>
   </component>
-  <component name="RunManager">
-    <configuration name="multiBitonic.c" type="CppFileRunConfiguration" factoryName="CppFileRunConfiguration" temporary="true" PROGRAM_PARAMS="-f prog2/data/datSeq256K.bin -n 8" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="cle-assignment1" TARGET_NAME="multiBitonic.c" CONFIG_NAME="multiBitonic.c">
+  <component name="RunManager" selected="C/C++ File.multiBitonic.c">
+    <configuration name="multiBitonic.c" type="CppFileRunConfiguration" factoryName="CppFileRunConfiguration" temporary="true" PROGRAM_PARAMS="-f prog2/data/datSeq16M.bin -n 8" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="cle-assignment1" TARGET_NAME="multiBitonic.c" CONFIG_NAME="multiBitonic.c">
       <option name="compilerOptions" value="-Wall -O3" />
       <option name="sourceFile" value="prog2\multiBitonic.c" />
       <method v="2">
         <option name="com.jetbrains.cidr.cpp.runfile.CppFileBuildBeforeRunTaskProvider$BasicBuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <configuration name="compile" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/prog2/Makefile" target="compile" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="C/C++ File.multiBitonic.c" />
+      <item itemvalue="Makefile Target.compile" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="C/C++ File.multiBitonic.c" />
+        <item itemvalue="Makefile Target.compile" />
       </list>
     </recent_temporary>
   </component>
@@ -95,7 +108,11 @@
       <workItem from="1709998754099" duration="330000" />
       <workItem from="1710076556269" duration="8573000" />
       <workItem from="1710158026666" duration="3380000" />
-      <workItem from="1710169286738" duration="5778000" />
+      <workItem from="1710169286738" duration="5834000" />
+      <workItem from="1710268233788" duration="23000" />
+      <workItem from="1710761453156" duration="4260000" />
+      <workItem from="1710955923254" duration="2162000" />
+      <workItem from="1710963793209" duration="1685000" />
     </task>
     <task id="LOCAL-00001" summary="add prog folders">
       <option name="closed" value="true" />
@@ -129,7 +146,23 @@
       <option name="project" value="LOCAL" />
       <updated>1709765068662</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="change error log">
+      <option name="closed" value="true" />
+      <created>1710762345879</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1710762345879</updated>
+    </task>
+    <task id="LOCAL-00006" summary="cadd benchmark script">
+      <option name="closed" value="true" />
+      <created>1710964228524</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1710964228524</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -140,7 +173,9 @@
     <MESSAGE value="add single and multi-threaded solutions for bitonic sort" />
     <MESSAGE value="add .idea folder" />
     <MESSAGE value="change outputs" />
-    <option name="LAST_COMMIT_MESSAGE" value="change outputs" />
+    <MESSAGE value="change error log" />
+    <MESSAGE value="cadd benchmark script" />
+    <option name="LAST_COMMIT_MESSAGE" value="cadd benchmark script" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

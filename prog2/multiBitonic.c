@@ -74,6 +74,17 @@ void bitonic_merge(int *arr, int low_index, int count, int direction) {
     bitonic_merge(arr, low_index + half, half, direction);
 }
 
+void bitonic_sort(int *arr, int low_index, int count, int direction) { // NOLINT(*-no-recursion)
+    if (count <= 1) return;
+    int half = count / 2;
+    // sort left half in ascending order
+    bitonic_sort(arr, low_index, half, 1);
+    // sort right half in descending order
+    bitonic_sort(arr, low_index + half, half, 0);
+    // merge the two halves
+    bitonic_merge(arr, low_index, count, direction);
+}
+
 /**
  *  \brief Worker thread function that executes merge tasks.
  *
@@ -89,7 +100,11 @@ static void *bitonic_worker(void *arg) {
     while (1) {
         worker_task_t task = dequeue(queue);
         if (task.arr == NULL) break; // exit the thread
-        bitonic_merge(task.arr, task.low_index, task.count, task.direction);
+        if (task.sort_or_merge == 0) {
+            bitonic_sort(task.arr, task.low_index, task.count, task.direction);
+        } else {
+            bitonic_merge(task.arr, task.low_index, task.count, task.direction);
+        }
         // decrease the number of merge tasks to be executed in the current level
         decrement_level_count(queue);
     }
@@ -153,7 +168,16 @@ static void *bitonic_distributor(void *arg) {
 
     // distribute merge tasks for each level of the bitonic sort
     if (size > 1) {
-        for (int count = 2; count <= size; count *= 2) {
+        set_level_count(queue, n_workers);
+        for (int i = 0; i < n_workers; i++) {
+            int low_index = i * (size / n_workers);
+            int count = size / n_workers;
+            int sub_direction = (((low_index / count) % 2 == 0) != 0) == direction;
+            worker_task_t task = {arr, low_index, count, sub_direction, 0};
+            enqueue(queue, task);
+        }
+        wait_level_end(queue);
+        for (int count = (size/n_workers)*2; count <= size; count *= 2) {
             // set the number of merge tasks to be executed in the next level
             int level_count = size / count;
             set_level_count(queue, level_count);
@@ -163,7 +187,7 @@ static void *bitonic_distributor(void *arg) {
             for (int low_index = 0; low_index < size; low_index += count) {
                 // sub_direction is the direction of the sub-merge
                 int sub_direction = (((low_index / count) % 2 == 0) != 0) == direction;
-                worker_task_t task = {arr, low_index, count, sub_direction};
+                worker_task_t task = {arr, low_index, count, sub_direction, 1};
                 enqueue(queue, task);
             }
             // wait for the current level to finish

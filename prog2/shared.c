@@ -30,6 +30,7 @@ typedef struct {
     int low_index;
     int count;
     int direction;
+    int sort_or_merge;
 } worker_task_t;
 
 /** \brief Structure that represents a FIFO queue */
