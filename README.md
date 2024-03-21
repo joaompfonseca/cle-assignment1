@@ -7,11 +7,11 @@ The assignment goal was to develop a multithreaded implementation of the two gen
 The first problem consisted...
 
 The second problem consisted on developing a sorting algorithm to sort an array of integers in a descending order. The
-chosen algorithm was bitonic sort, since it provides good parallel decomposition properties. A distributor thread is
+chosen algorithm was bitonic sort, since it provides good parallel decomposition properties. A distributor thread
 coordinates the sorting by assigning the appropriate tasks to each worker thread. A first iteration involves the distributor
 equally spliting the array among the workers for each to perform a bitonic sort task. After that is done, the distributor
 assigns bitonic merge tasks over pairs of sorted parts of the array to each worker, terminating the threads that are not
-necessary anymore. This is repeated for larger and larger parts sizes, until the whole array is sorted.
+necessary anymore. This is repeated for larger and larger sub-array sizes, until the whole array is sorted.
 
 **Course:** Large Scale Computing (2023/2024).
 
