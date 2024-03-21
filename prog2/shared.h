@@ -31,30 +31,33 @@ typedef struct {
     int low_index;
     int count;
     int direction;
-    int sort_or_merge;
+    int type;
 } worker_task_t;
 
-/** \brief Structure that represents a FIFO queue */
+/** \brief Structure that represents the configuration of the program */
 typedef struct {
-    worker_task_t tasks[QUEUE_SIZE];
-    int front;
-    int rear;
-    int size;
-    int level_count;
-    pthread_mutex_t mutex;
-    pthread_cond_t not_empty;
-    pthread_cond_t not_full;
-    pthread_cond_t level_done;
-} queue_t;
-
-/** \brief Structure that represents the shared area */
-typedef struct {
-    char *file_path;
+    char* file_path;
     int *arr;
     int size;
     int direction;
     int n_workers;
-    queue_t *queue;
+} config_t;
+
+/** \brief Structure that represents the tasks */
+typedef struct {
+    worker_task_t *list;
+    int size;
+    int index;
+    int done;
+    pthread_cond_t tasks_ready;
+    pthread_cond_t tasks_done;
+} tasks_t;
+
+/** \brief Structure that represents the shared area */
+typedef struct {
+    pthread_mutex_t mutex;
+    config_t config;
+    tasks_t tasks;
 } shared_t;
 
 /**
@@ -64,7 +67,7 @@ typedef struct {
  *
  * \param queue pointer to the queue
  */
-void init_queue(queue_t *queue);
+void init_shared(shared_t *shared, config_t *config, tasks_t *tasks);
 
 /**
  * \brief Enqueue a merge task in the FIFO queue.
@@ -74,7 +77,7 @@ void init_queue(queue_t *queue);
  * \param queue pointer to the queue
  * \param task merge task to be enqueued
  */
-void enqueue(queue_t *queue, worker_task_t task);
+void set_tasks(shared_t *shared, worker_task_t *list, int size);
 
 /**
  * \brief Dequeue a merge task from the FIFO queue.
@@ -85,7 +88,7 @@ void enqueue(queue_t *queue, worker_task_t task);
  *
  * \return the dequeued merge task
  */
-worker_task_t dequeue(queue_t *queue);
+worker_task_t get_task(shared_t *shared, int index);
 
 /**
  * \brief Sets the desired number of merge tasks to be executed in the next level.
@@ -95,24 +98,6 @@ worker_task_t dequeue(queue_t *queue);
  * \param queue pointer to the queue
  * \param count number of merge tasks
  */
-void set_level_count(queue_t *queue, int count);
-
-/**
- * \brief Decrements the number of merge tasks to be executed in the current level.
- *
- * Should be called by a worker thread after it finishes a merge task.
- *
- * \param queue pointer to the queue
- */
-void decrement_level_count(queue_t *queue);
-
-/**
- * \brief Waits for the number of merge tasks to be executed in the current level to reach zero.
- *
- * Should be called by the main thread before enqueuing merge tasks for the next level.
- *
- * \param queue pointer to the queue
- */
-void wait_level_end(queue_t *queue);
+void task_done(shared_t *shared, int index);
 
 #endif /* SHARED_H */

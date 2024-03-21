@@ -30,30 +30,33 @@ typedef struct {
     int low_index;
     int count;
     int direction;
-    int sort_or_merge;
+    int type;
 } worker_task_t;
 
-/** \brief Structure that represents a FIFO queue */
-typedef struct {
-    worker_task_t tasks[QUEUE_SIZE];
-    int front;
-    int rear;
-    int size;
-    int level_count;
-    pthread_mutex_t mutex;
-    pthread_cond_t not_empty;
-    pthread_cond_t not_full;
-    pthread_cond_t level_done;
-} queue_t;
-
-/** \brief Structure that represents the shared area */
+/** \brief Structure that represents the configuration of the program */
 typedef struct {
     char* file_path;
     int *arr;
     int size;
     int direction;
     int n_workers;
-    queue_t *queue;
+} config_t;
+
+/** \brief Structure that represents the tasks */
+typedef struct {
+    worker_task_t *list;
+    int size;
+    int *is_thread_done;
+    int done;
+    pthread_cond_t tasks_ready;
+    pthread_cond_t tasks_done;
+} tasks_t;
+
+/** \brief Structure that represents the shared area */
+typedef struct {
+    pthread_mutex_t mutex;
+    config_t config;
+    tasks_t tasks;
 } shared_t;
 
 /**
@@ -63,15 +66,10 @@ typedef struct {
  *
  * \param queue pointer to the queue
  */
-void init_queue(queue_t *queue) {
-    queue->front = 0;
-    queue->rear = -1;
-    queue->size = 0;
-    queue->level_count = 0;
-    pthread_mutex_init(&queue->mutex, NULL);
-    pthread_cond_init(&queue->not_empty, NULL);
-    pthread_cond_init(&queue->not_full, NULL);
-    pthread_cond_init(&queue->level_done, NULL);
+void init_shared(shared_t *shared, config_t *config, tasks_t *tasks) {
+    pthread_mutex_init(&shared->mutex, NULL);
+    shared->config = *config;
+    shared->tasks = *tasks;
 }
 
 /**
@@ -82,16 +80,19 @@ void init_queue(queue_t *queue) {
  * \param queue pointer to the queue
  * \param task merge task to be enqueued
  */
-void enqueue(queue_t *queue, worker_task_t task) {
-    pthread_mutex_lock(&queue->mutex);
-    while (queue->size >= QUEUE_SIZE) {
-        pthread_cond_wait(&queue->not_full, &queue->mutex);
+void set_tasks(shared_t *shared, worker_task_t *list, int size) {
+    pthread_mutex_lock(&shared->mutex);
+    while (shared->tasks.done < shared->tasks.size) {
+        pthread_cond_wait(&shared->tasks.tasks_done, &shared->mutex);
     }
-    queue->rear = (queue->rear + 1) % QUEUE_SIZE;
-    queue->tasks[queue->rear] = task;
-    queue->size++;
-    pthread_cond_signal(&queue->not_empty);
-    pthread_mutex_unlock(&queue->mutex);
+    for (int i = 0; i < size; i++) {
+        shared->tasks.list[i] = list[i];
+        shared->tasks.is_thread_done[i] = 0;
+    }
+    shared->tasks.size = size;
+    shared->tasks.done = 0;
+    pthread_cond_broadcast(&shared->tasks.tasks_ready);
+    pthread_mutex_unlock(&shared->mutex);
 }
 
 /**
@@ -103,31 +104,15 @@ void enqueue(queue_t *queue, worker_task_t task) {
  *
  * \return the dequeued merge task
  */
-worker_task_t dequeue(queue_t *queue) {
-    pthread_mutex_lock(&queue->mutex);
-    while (queue->size <= 0) {
-        pthread_cond_wait(&queue->not_empty, &queue->mutex);
+worker_task_t get_task(shared_t *shared, int index) {
+    worker_task_t task;
+    pthread_mutex_lock(&shared->mutex);
+    while (shared->tasks.is_thread_done[index] == 1 || shared->tasks.size == 0) {
+        pthread_cond_wait(&shared->tasks.tasks_ready, &shared->mutex);
     }
-    worker_task_t task = queue->tasks[queue->front];
-    queue->front = (queue->front + 1) % QUEUE_SIZE;
-    queue->size--;
-    pthread_cond_signal(&queue->not_full);
-    pthread_mutex_unlock(&queue->mutex);
+    task = shared->tasks.list[index];
+    pthread_mutex_unlock(&shared->mutex);
     return task;
-}
-
-/**
- * \brief Sets the desired number of merge tasks to be executed in the next level.
- *
- * Should be called by the main thread before enqueuing merge tasks for the next level.
- *
- * \param queue pointer to the queue
- * \param count number of merge tasks
- */
-void set_level_count(queue_t *queue, int count) {
-    pthread_mutex_lock(&queue->mutex);
-    queue->level_count = count;
-    pthread_mutex_unlock(&queue->mutex);
 }
 
 /**
@@ -137,26 +122,12 @@ void set_level_count(queue_t *queue, int count) {
  *
  * \param queue pointer to the queue
  */
-void decrement_level_count(queue_t *queue) {
-    pthread_mutex_lock(&queue->mutex);
-    queue->level_count--;
-    if (queue->level_count == 0) {
-        pthread_cond_signal(&queue->level_done);
+void task_done(shared_t *shared, int index) {
+    pthread_mutex_lock(&shared->mutex);
+    shared->tasks.is_thread_done[index] = 1;
+    shared->tasks.done++;
+    if (shared->tasks.done == shared->tasks.size) {
+        pthread_cond_signal(&shared->tasks.tasks_done);
     }
-    pthread_mutex_unlock(&queue->mutex);
-}
-
-/**
- * \brief Waits for the number of merge tasks to be executed in the current level to reach zero.
- *
- * Should be called by the main thread before enqueuing merge tasks for the next level.
- *
- * \param queue pointer to the queue
- */
-void wait_level_end(queue_t *queue) {
-    pthread_mutex_lock(&queue->mutex);
-    while (queue->level_count > 0) {
-        pthread_cond_wait(&queue->level_done, &queue->mutex);
-    }
-    pthread_mutex_unlock(&queue->mutex);
+    pthread_mutex_unlock(&shared->mutex);
 }
