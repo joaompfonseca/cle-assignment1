@@ -1,10 +1,9 @@
 # Usage: ./benchmark.sh
 # Description: Compiles the source code, runs the multithreaded bitonic sort program, and outputs the results in a
-#              "results" directory, where each file contains the execution time of the program for a specific
-#              configuration of threads (1, 2, 4, 8) and array sizes (32, 256K, 1M, 16M).
+#              "results" file, for each configuration of array sizes (32, 256K, 1M, 16M) and threads (1, 2, 4, 8).
 # Example: ./benchmark.sh
 
-OUTPUT_FILE="benchmark_results.txt"
+OUTPUT_FILE="results.txt"
 FOLDER_NUMBERS="data"
 FILE_NUMBERS="datSeq32.bin datSeq256K.bin datSeq1M.bin datSeq16M.bin"
 N_THREADS="1 2 4 8"
@@ -27,4 +26,4 @@ for file in $FILE_NUMBERS; do
 done
 
 # Clean-up
-rm -f benchmark
+rm -f bmprog2

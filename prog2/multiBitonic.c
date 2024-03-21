@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
     tasks_t *tasks = (tasks_t *) malloc(sizeof(tasks_t));
     if (tasks == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the list of tasks\n");
-        free_all((void **) config, 1);
+        free_all((void *[]) {config}, 1);
         return EXIT_FAILURE;
     }
     // allocate memory for the list of tasks
