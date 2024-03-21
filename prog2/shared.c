@@ -3,18 +3,27 @@
  *
  *  \brief Assignment 1.2: multithreaded bitonic sort.
  *
- *  This file contains the definition of a FIFO queue and the operations that it supports.
- *  The queue is used to store merge tasks to be executed by the worker threads.
+ *  This file contains the definition of the shared area and the operations it supports.
+ *
+ *  The shared area contains the configuration of the program and a the mechanism to assign tasks to each worker thread.
+ *
+ *  A distributor thread assigns tasks to each worker thread and waits for them to finish doing them. It is also
+ *  responsible for controlling the number of tasks that need to be executed before assigning new ones.
+ *
+ *  A worker thread can perform 3 types of tasks:
+ *  - sort (bitonic sort)
+ *  - merge (bitonic merge of two sorted arrays)
+ *  - termination (terminates the worker thread)
  *
  *  Main thread operations:
- *  - init_queue: initialize the queue
- *  - enqueue: add a task to the queue
- *  - set_level_count: set the number of tasks that need to be executed in the next level
- *  - wait_level_end: wait for the current level to finish
+ *  - init_shared: initializes the shared area
  *
- *  Consumer thread operations:
- *  - dequeue: remove a task from the queue
- *  - decrement_level_count: decrements the number of tasks to be executed in the current level
+ *  Distributor thread operations:
+ *  - set_tasks: assigns tasks to each worker thread
+ *
+ *  Worker thread operations:
+ *  - get_task: gets a task to execute
+ *  - task_done: decrements the number of tasks to be executed
  *
  *  \author João Fonseca - March 2024
  *  \author Rafael Gonçalves - March 2024
@@ -22,29 +31,27 @@
 
 #include <pthread.h>
 
-#include "const.h"
-
-/** \brief Structure that represents a merge task to be executed by a worker thread */
+/** \brief Structure that represents a task to be executed by a worker thread */
 typedef struct {
+    int type;
     int *arr;
     int low_index;
     int count;
     int direction;
-    int type;
-} worker_task_t;
+} task_t;
 
 /** \brief Structure that represents the configuration of the program */
 typedef struct {
-    char* file_path;
+    char *file_path;
     int *arr;
     int size;
     int direction;
     int n_workers;
 } config_t;
 
-/** \brief Structure that represents the tasks */
+/** \brief Structure that represents the mechanism to assign tasks to each worker thread */
 typedef struct {
-    worker_task_t *list;
+    task_t *list;
     int size;
     int *is_thread_done;
     int done;
@@ -60,11 +67,63 @@ typedef struct {
 } shared_t;
 
 /**
- * \brief Initializes the FIFO queue.
+ * \brief Initializes the configuration of the program.
  *
- * Should be called by the main thread before using the queue.
+ * Should be called by the main thread before creating the distributor and worker threads.
  *
- * \param queue pointer to the queue
+ * \param config pointer to the configuration of the program
+ * \param file_path path to the file with the array to be sorted
+ * \param direction direction of the bitonic sort
+ * \param n_workers number of worker threads
+ */
+void init_config(config_t *config, char *file_path, int direction, int n_workers) {
+    config->file_path = file_path;
+    config->direction = direction;
+    config->n_workers = n_workers;
+}
+
+/**
+ * \brief Initializes the array to be sorted.
+ *
+ * Should be called by the distributor thread before assigning tasks to the worker threads.
+ *
+ * \param config pointer to the configuration of the program
+ * \param arr pointer to the array to be sorted
+ * \param size size of the array to be sorted
+ */
+void init_arr(config_t *config, int *arr, int size) {
+    config->arr = arr;
+    config->size = size;
+}
+
+/**
+ * \brief Initializes the tasks mechanism.
+ *
+ * Should be called by the main thread before creating the distributor and worker threads.
+ *
+ * \param tasks pointer to the mechanism to assign tasks to each worker thread
+ * \param list pointer to the list of tasks
+ * \param size size of the list of tasks
+ * \param is_thread_done pointer to the array that indicates if a worker thread is done with its task
+ */
+void init_tasks(tasks_t *tasks, task_t *list, int size, int *is_thread_done) {
+    tasks->list = list;
+    tasks->size = size;
+    tasks->is_thread_done = is_thread_done;
+    tasks->done = 0;
+    pthread_cond_init(&tasks->tasks_ready, NULL);
+    pthread_cond_init(&tasks->tasks_done, NULL);
+}
+
+/**
+ * \brief Initializes the shared area.
+ *
+ * Should be called by the main thread before creating the distributor and worker threads.
+ * Called after init_config and init_tasks.
+ *
+ * \param shared pointer to the shared area
+ * \param config pointer to the configuration of the program
+ * \param tasks pointer to the mechanism to assign tasks to each worker thread
  */
 void init_shared(shared_t *shared, config_t *config, tasks_t *tasks) {
     pthread_mutex_init(&shared->mutex, NULL);
@@ -73,14 +132,16 @@ void init_shared(shared_t *shared, config_t *config, tasks_t *tasks) {
 }
 
 /**
- * \brief Enqueue a merge task in the FIFO queue.
+ * \brief Assigns tasks to each worker thread.
  *
- * Should be called by the main thread to add a merge task to the queue.
+ * Should be called by the distributor thread to assign tasks to each worker thread.
+ * Blocks until all worker threads are done with their tasks.
  *
- * \param queue pointer to the queue
- * \param task merge task to be enqueued
+ * \param shared pointer to the shared area
+ * \param list pointer to the list of tasks
+ * \param size size of the list of tasks
  */
-void set_tasks(shared_t *shared, worker_task_t *list, int size) {
+void set_tasks(shared_t *shared, task_t *list, int size) {
     pthread_mutex_lock(&shared->mutex);
     while (shared->tasks.done < shared->tasks.size) {
         pthread_cond_wait(&shared->tasks.tasks_done, &shared->mutex);
@@ -96,16 +157,17 @@ void set_tasks(shared_t *shared, worker_task_t *list, int size) {
 }
 
 /**
- * \brief Dequeue a merge task from the FIFO queue.
+ * \brief Gets a task to execute.
  *
- * Should be called by a worker thread to get a merge task to execute.
+ * Should be called by a worker thread to get a task to execute.
+ * Blocks until there is a new task assigned to the worker thread.
  *
- * \param queue pointer to the queue
- *
- * \return the dequeued merge task
+ * \param shared pointer to the shared area
+ * \param index index of the worker thread
+ * \return task to execute
  */
-worker_task_t get_task(shared_t *shared, int index) {
-    worker_task_t task;
+task_t get_task(shared_t *shared, int index) {
+    task_t task;
     pthread_mutex_lock(&shared->mutex);
     while (shared->tasks.is_thread_done[index] == 1 || shared->tasks.size == 0) {
         pthread_cond_wait(&shared->tasks.tasks_ready, &shared->mutex);
@@ -116,11 +178,13 @@ worker_task_t get_task(shared_t *shared, int index) {
 }
 
 /**
- * \brief Decrements the number of merge tasks to be executed in the current level.
+ * \brief Decrements the number of tasks to be executed.
  *
- * Should be called by a worker thread after it finishes a merge task.
+ * Should be called by a worker thread after finishing its task.
+ * Decrements the number of tasks to be executed and signals the distributor thread if all tasks are done.
  *
- * \param queue pointer to the queue
+ * \param shared pointer to the shared area
+ * \param index index of the worker thread
  */
 void task_done(shared_t *shared, int index) {
     pthread_mutex_lock(&shared->mutex);

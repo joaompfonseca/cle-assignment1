@@ -15,6 +15,12 @@
 /** \brief Default number of worker threads */
 #define N_WORKERS  2
 
+/** \brief Descending sort direction */
+#define DESCENDING 0
+
+/** \brief Ascending sort direction */
+#define ASCENDING 1
+
 /** \brief Represents a sort task */
 #define SORT_TASK 0
 

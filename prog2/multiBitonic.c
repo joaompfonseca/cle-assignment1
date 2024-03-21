@@ -57,7 +57,7 @@ static double get_delta_time(void) {
  *  \param count number of elements in the array
  *  \param direction 0 for descending order, 1 for ascending order
  */
-void bitonic_merge(int *arr, int low_index, int count, int direction) {
+void bitonic_merge(int *arr, int low_index, int count, int direction) { // NOLINT(*-no-recursion)
     if (count <= 1) return;
     int half = count / 2;
     // move the numbers to the correct half
@@ -74,29 +74,43 @@ void bitonic_merge(int *arr, int low_index, int count, int direction) {
     bitonic_merge(arr, low_index + half, half, direction);
 }
 
+/**
+ *  \brief Sorts an integer array in the desired order.
+ *
+ *  \param arr array to be sorted
+ *  \param low_index index of the first element of the array
+ *  \param count number of elements in the array
+ *  \param direction 0 for descending order, 1 for ascending order
+ */
 void bitonic_sort(int *arr, int low_index, int count, int direction) { // NOLINT(*-no-recursion)
     if (count <= 1) return;
     int half = count / 2;
     // sort left half in ascending order
-    bitonic_sort(arr, low_index, half, 1);
+    bitonic_sort(arr, low_index, half, ASCENDING);
     // sort right half in descending order
-    bitonic_sort(arr, low_index + half, half, 0);
+    bitonic_sort(arr, low_index + half, half, DESCENDING);
     // merge the two halves
     bitonic_merge(arr, low_index, count, direction);
 }
 
+/**
+ *  \brief Argument structure for the worker threads.
+ */
 typedef struct {
     int index;
     shared_t *shared;
 } bitonic_worker_arg_t;
 
 /**
- *  \brief Worker thread function that executes merge tasks.
+ *  \brief Worker thread function that executes tasks.
  *
- *  It dequeues a task from the FIFO queue and executes it.
- *  When there are no more tasks, the thread exits.
+ *  Lifecycle loop:
+ *  - get a task from the shared area
+ *  - if the task is a sort task, sort the array
+ *  - if the task is a merge task, merge the array
+ *  - if the task is a termination task, finish the thread
  *
- *  \param arg pointer to the shared area
+ *  \param arg pointer to the argument structure, that contains the index of the worker thread and the shared area
  */
 static void *bitonic_worker(void *arg) {
     bitonic_worker_arg_t *worker_arg = (bitonic_worker_arg_t *) arg;
@@ -104,7 +118,7 @@ static void *bitonic_worker(void *arg) {
     shared_t *shared = worker_arg->shared;
 
     while (1) {
-        worker_task_t task = get_task(shared, index);
+        task_t task = get_task(shared, index);
         if (task.type == SORT_TASK) {
             bitonic_sort(task.arr, task.low_index, task.count, task.direction);
             task_done(shared, index);
@@ -121,10 +135,13 @@ static void *bitonic_worker(void *arg) {
 }
 
 /**
- *  \brief Distributor thread function that distributes merge tasks and executes the bitonic sort.
+ *  \brief Distributor thread function that assigns tasks to worker threads.
  *
- *  It enqueues a task to the FIFO queue for each level of the bitonic sort.
- *  It waits for the worker threads to finish the level before enqueuing the next level.
+ *  Lifecycle:
+ *  - read the array from the file
+ *  - divide the array into n_workers parts and assign a sort task to each worker thread
+ *  - perform a bitonic merge of the sorted parts and assign a merge task to each worker thread
+ *  - terminate worker threads that are not needed anymore
  *
  *  \param arg pointer to the shared area
  */
@@ -153,7 +170,6 @@ static void *bitonic_distributor(void *arg) {
         fclose(file);
         return (void *) EXIT_FAILURE;
     }
-    shared->config.size = size;
     fprintf(stdout, "[DIST] Array size: %d\n", size);
     // allocate memory for the array
     int *arr = (int *) malloc(size * sizeof(int));
@@ -162,7 +178,6 @@ static void *bitonic_distributor(void *arg) {
         fclose(file);
         return (void *) EXIT_FAILURE;
     }
-    shared->config.arr = arr;
     // load array into memory
     int num, ni = 0;
     while (fread(&num, sizeof(int), 1, file) == 1 && ni < size) {
@@ -171,8 +186,11 @@ static void *bitonic_distributor(void *arg) {
     // close the file
     fclose(file);
 
+    // initialize the array to be sorted
+    init_arr(&shared->config, arr, size);
+
     // allocate memory for the list of tasks
-    worker_task_t *list = (worker_task_t *) malloc(n_workers * sizeof(worker_task_t));
+    task_t *list = (task_t *) malloc(n_workers * sizeof(task_t));
     if (list == NULL) {
         fprintf(stderr, "[DIST] Could not allocate memory for the list of tasks\n");
         return (void *) EXIT_FAILURE;
@@ -189,7 +207,7 @@ static void *bitonic_distributor(void *arg) {
             int low_index = i * count;
             // direction of the sub-sort
             int sub_direction = (((low_index / count) % 2 == 0) != 0) == direction;
-            worker_task_t task = {arr, low_index, count, sub_direction, SORT_TASK};
+            task_t task = {SORT_TASK, arr, low_index, count, sub_direction};
             list[i] = task;
         }
         set_tasks(shared, list, n_workers);
@@ -204,12 +222,12 @@ static void *bitonic_distributor(void *arg) {
                 int low_index = i * count;
                 // direction of the sub-merge
                 int sub_direction = (((low_index / count) % 2 == 0) != 0) == direction;
-                worker_task_t task = {arr, low_index, count, sub_direction, MERGE_TASK};
+                task_t task = {MERGE_TASK, arr, low_index, count, sub_direction};
                 list[i] = task;
             }
             // termination tasks
             for (int i = n_tasks; i < n_workers; i++) {
-                worker_task_t task = {.type = TERMINATION_TASK};
+                task_t task = {TERMINATION_TASK};
                 list[i] = task;
             }
             set_tasks(shared, list, n_workers);
@@ -219,7 +237,7 @@ static void *bitonic_distributor(void *arg) {
         }
 
         // termination task to last worker thread
-        worker_task_t task = {.type = TERMINATION_TASK};
+        task_t task = {TERMINATION_TASK};
         list[0] = task;
         set_tasks(shared, list, 1);
     }
@@ -233,8 +251,14 @@ static void *bitonic_distributor(void *arg) {
 /**
  *  \brief Main function of the program.
  *
- *  It processes the command line options, initializes the shared area, creates the distributor and worker threads,
- *  waits for the threads to finish, checks if the array is sorted and frees the allocated memory.
+ *  Lifecycle:
+ *  - process command line options
+ *  - allocate memory for the shared area, configuration, tasks, list of tasks and list of threads done
+ *  - initialize the configuration, tasks and shared area
+ *  - create distributor thread
+ *  - create worker threads
+ *  - wait for threads to finish
+ *  - check if the array is sorted
  *
  *  \param argc number of command line arguments
  *  \param argv array of command line arguments
@@ -298,9 +322,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the configuration\n");
         return EXIT_FAILURE;
     }
-    config->file_path = file_path;
-    config->direction = 0; // descending order
-    config->n_workers = n_workers;
     // allocate memory for the tasks
     tasks_t *tasks = (tasks_t *) malloc(sizeof(tasks_t));
     if (tasks == NULL) {
@@ -308,21 +329,20 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
     // allocate memory for the list of tasks
-    worker_task_t *list = (worker_task_t *) malloc(n_workers * sizeof(worker_task_t));
+    task_t *list = (task_t *) malloc(n_workers * sizeof(task_t));
     if (list == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the list of tasks\n");
         return EXIT_FAILURE;
     }
-    tasks->list = list;
-    tasks->size = 0; // no tasks
     // allocate memory for the list of threads done
     int *is_thread_done = (int *) malloc(n_workers * sizeof(int));
     if (is_thread_done == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the list of threads done\n");
         return EXIT_FAILURE;
     }
-    tasks->is_thread_done = is_thread_done;
-    // initialize the shared area
+    // initialize the configuration, tasks and shared area
+    init_config(config, file_path, DESCENDING, n_workers);
+    init_tasks(tasks, list, n_workers, is_thread_done);
     init_shared(shared, config, tasks);
 
     // create distributor thread
