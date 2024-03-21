@@ -50,6 +50,18 @@ static double get_delta_time(void) {
 }
 
 /**
+ * \brief Free memory from all pointers in the list.
+ *
+ * \param pointers list of pointers to be freed
+ * \param size number of pointers in the list
+ */
+void free_all(void **pointers, int size) {
+    for (int i = 0; i < size; i++) {
+        free(pointers[i]);
+    }
+}
+
+/**
  *  \brief Merges two halves of an integer array in the desired order.
  *
  *  \param arr array to be merged
@@ -193,6 +205,7 @@ static void *bitonic_distributor(void *arg) {
     task_t *list = (task_t *) malloc(n_workers * sizeof(task_t));
     if (list == NULL) {
         fprintf(stderr, "[DIST] Could not allocate memory for the list of tasks\n");
+        free_all((void **) arr, 1);
         return (void *) EXIT_FAILURE;
     }
 
@@ -310,12 +323,6 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "[MAIN] Input file: %s\n", file_path);
     fprintf(stdout, "[MAIN] Worker threads: %d\n", n_workers);
 
-    // allocate memory for the shared area
-    shared_t *shared = (shared_t *) malloc(sizeof(shared_t));
-    if (shared == NULL) {
-        fprintf(stderr, "[MAIN] Could not allocate memory for the shared area\n");
-        return EXIT_FAILURE;
-    }
     // allocate memory for the configuration
     config_t *config = (config_t *) malloc(sizeof(config_t));
     if (config == NULL) {
@@ -326,18 +333,28 @@ int main(int argc, char *argv[]) {
     tasks_t *tasks = (tasks_t *) malloc(sizeof(tasks_t));
     if (tasks == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the list of tasks\n");
+        free_all((void **) config, 1);
         return EXIT_FAILURE;
     }
     // allocate memory for the list of tasks
     task_t *list = (task_t *) malloc(n_workers * sizeof(task_t));
     if (list == NULL) {
-        fprintf(stderr, "[MAIN] Could not allocate memory for the list of tasks\n");
+        fprintf(stderr, "[MAIN] Could not allocate memory for the list of tasks\n");;
+        free_all((void *[]) {config, tasks}, 2);
         return EXIT_FAILURE;
     }
     // allocate memory for the list of threads done
     int *is_thread_done = (int *) malloc(n_workers * sizeof(int));
     if (is_thread_done == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the list of threads done\n");
+        free_all((void *[]) {config, tasks, list}, 3);
+        return EXIT_FAILURE;
+    }
+    // allocate memory for the shared area
+    shared_t *shared = (shared_t *) malloc(sizeof(shared_t));
+    if (shared == NULL) {
+        fprintf(stderr, "[MAIN] Could not allocate memory for the shared area\n");
+        free_all((void *[]) {config, tasks, list, is_thread_done}, 4);
         return EXIT_FAILURE;
     }
     // initialize the configuration, tasks and shared area
@@ -349,10 +366,12 @@ int main(int argc, char *argv[]) {
     pthread_t *distributor = (pthread_t *) malloc(sizeof(pthread_t));
     if (distributor == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the distributor thread\n");
+        free_all((void *[]) {config, tasks, list, is_thread_done, shared}, 5);
         return EXIT_FAILURE;
     }
     if (pthread_create(distributor, NULL, bitonic_distributor, shared) != 0) {
         fprintf(stderr, "[MAIN] Could not create distributor thread\n");
+        free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor}, 6);
         return EXIT_FAILURE;
     } else {
         fprintf(stdout, "[MAIN] Distributor thread has been created\n");
@@ -361,17 +380,20 @@ int main(int argc, char *argv[]) {
     pthread_t *workers = (pthread_t *) malloc(n_workers * sizeof(pthread_t));
     if (workers == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the worker threads\n");
+        free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor}, 6);
         return EXIT_FAILURE;
     }
     bitonic_worker_arg_t *workers_arg = (bitonic_worker_arg_t *) malloc(n_workers * sizeof(bitonic_worker_arg_t));
     if (workers_arg == NULL) {
         fprintf(stderr, "[MAIN] Could not allocate memory for the worker threads arguments\n");
+        free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers}, 7);
         return EXIT_FAILURE;
     }
     for (int i = 0; i < n_workers; i++) {
         workers_arg[i] = (bitonic_worker_arg_t) {i, shared};
         if (pthread_create(&workers[i], NULL, bitonic_worker, &workers_arg[i]) != 0) {
             fprintf(stderr, "[MAIN] Could not create worker thread %d\n", i + 1);
+            free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers, workers_arg}, 8);
             return EXIT_FAILURE;
         } else {
             fprintf(stdout, "[MAIN] Worker threads have been created (%d/%d)\n", i + 1, n_workers);
@@ -385,6 +407,7 @@ int main(int argc, char *argv[]) {
     ptr_retcode_int = (int *) ptr_retcode_void;
     if (ptr_retcode_int != EXIT_SUCCESS) {
         fprintf(stderr, "[MAIN] Distributor thread has failed with return code %d\n", *ptr_retcode_int);
+        free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers, workers_arg}, 8);
         return EXIT_FAILURE;
     } else {
         fprintf(stdout, "[MAIN] Distributor thread has finished\n");
@@ -395,6 +418,7 @@ int main(int argc, char *argv[]) {
         if (ptr_retcode_int != EXIT_SUCCESS) {
             fprintf(stderr, "[MAIN] Worker thread %d has failed with return code %d\n", i + 1,
                     *ptr_retcode_int);
+            free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers, workers_arg}, 8);
             return EXIT_FAILURE;
         } else {
             fprintf(stdout, "[MAIN] Worker threads have finished (%d/%d)\n", i + 1, n_workers);
@@ -408,10 +432,12 @@ int main(int argc, char *argv[]) {
         if (arr[i] < arr[i + 1]) {
             fprintf(stderr, "[MAIN] Error in position %d between element %d and %d\n",
                     i, arr[i], arr[i + 1]);
+            free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers, workers_arg}, 8);
             return EXIT_FAILURE;
         }
     }
     printf("[MAIN] The array is sorted, everything is OK! :)\n");
 
+    free_all((void *[]) {config, tasks, list, is_thread_done, shared, distributor, workers, workers_arg, arr}, 9);
     return EXIT_SUCCESS;
 }
