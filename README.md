@@ -44,7 +44,7 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 ### Optional arguments
                                                                                                       
 - `-h`: Shows how to use the program.                                                                                                      
-- `-n worker_threads`: Number of worker threads (int, mininum=1, default=2).
+- `-n worker_threads`: Number of worker threads (int, min=1, default=2).
 
 ### Example
 
