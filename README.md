@@ -37,7 +37,7 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 ### Compile and execute
 
-- Run `cd prog2` to change to the program's directory.
+- Run `cd prog2` in root to change to the program's directory.
 - Run `make` to compile the program.
 - Run `./prog2 REQUIRED OPTIONAL` to execute the program.
 
