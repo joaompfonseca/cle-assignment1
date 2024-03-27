@@ -17,7 +17,7 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 ## 1. Multithreaded equal consonants
 
-### Compile and run
+### Compile and execute
 
 - ...
 
@@ -35,11 +35,11 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 ## 2. Multithreaded bitonic sort
 
-### Compile and run
+### Compile and execute
 
 - Run `cd prog2` to change to the program's directory.
 - Run `make` to compile the program.
-- Run `./prog2 REQUIRED OPTIONAL` to run the program.
+- Run `./prog2 REQUIRED OPTIONAL` to execute the program.
 
 ### Required arguments
 
