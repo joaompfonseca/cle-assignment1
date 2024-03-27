@@ -15,41 +15,40 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 **Course:** Large Scale Computing (2023/2024).
 
-## Running the programs
-
-### 1. Multithreaded equal consonants
+## 1. Multithreaded equal consonants
 
 - ...
 
-#### Usage of the program
+### Required arguments
 
-```
+- ...
 
-```
+### Optional arguments
+                                                                                                      
+- ...
 
-#### Example of usage
+### Example
 
-```...```
+`...`
 
-### 2. Multithreaded bitonic sort
+## 2. Multithreaded bitonic sort
 
 - Run `cd prog2` to change to the program's directory.
 - Run `make` to compile the program.
-- Run `./prog2 REQUIRED OPTIONS` to run the program.
+- Run `./prog2 REQUIRED OPTIONAL` to run the program.
 
-#### Usage of the program
+### Required arguments
 
-```                                                                                          
-REQUIRED:                                                                                                                   
--f --- input file with numbers                                                                                              
-OPTIONS:                                                                                                                    
--h --- print this help                                                                                                      
--n --- number of worker threads (default is 2, minimum is 1)
-```
+- `-f input_file_path`: Path to the input file with numbers (string).
 
-#### Example of usage
+### Optional arguments
+                                                                                                      
+- `-h`: Shows how to use the program.                                                                                                      
+- `-n worker_threads`: Number of worker threads (int, mininum=1, default=2).
 
-```./prog2 -f data/datSeq256K.bin -n 8```
+### Example
+
+`./prog2 -f data/datSeq256K.bin -n 8`
 
 ## Authors
 
