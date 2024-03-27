@@ -43,12 +43,12 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 ### Required arguments
 
-- `-f input_file_path`: Path to the input file with numbers (string).
+- `-f input_file_path`: path to the input file with numbers (string).
 
 ### Optional arguments
                                                                                                       
-- `-h`: Shows how to use the program.                                                                                                      
-- `-n worker_threads`: Number of worker threads (int, min=1, default=2).
+- `-h`: shows how to use the program.                                                                                                      
+- `-n worker_threads`: number of worker threads (int, min=1, default=2).
 
 ### Example
 
