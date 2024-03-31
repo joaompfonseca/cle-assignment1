@@ -19,19 +19,16 @@ necessary anymore. This is repeated for larger and larger subarray sizes, until 
 
 ### Compile and execute
 
-- ...
-
-### Required arguments
-
-- ...
+- Run `cd prog1` in root to change to the program's directory.
+- Run `make` to compile the program.
+- Run `./prog1 [file1_path] ... [fileN_path] OPTIONAL` to execute the program.
 
 ### Optional arguments
-                                                                                                      
-- ...
+- `-h`: shows how to use the program.
+- `-n worker_threads`: number of worker threads (int, min=1, default=2).
 
 ### Example
-
-`...`
+`./prog1 file1.txt file2.txt -n 4`
 
 ## 2. Multithreaded bitonic sort
 
