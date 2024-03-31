@@ -6,7 +6,7 @@
 #include "shared.h"
 #include "wordUtils.h"
 
-#define N_WORKERS 4 // default number of workers
+#define N_WORKERS 2 // default number of workers
 #define CLOCK_MONOTONIC 1 // for clock_gettime
 
 static double get_delta_time(void) {
