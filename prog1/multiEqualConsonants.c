@@ -1,3 +1,14 @@
+/**
+ * \file multiEqualConsonants.c (implementation file)
+ * 
+ * \brief Assignment 1.1: count words with multiple equal consonants.
+ * 
+ * This file contains the implementation of a program that reads several files containing Portuguese texts, and for each one, counts the number of words and those with at least two equal consonants.
+ * 
+ *  \author João Fonseca - March 2024
+ *  \author Rafael Gonçalves - March 2024
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -9,6 +20,11 @@
 #define N_WORKERS 2 // default number of workers
 #define CLOCK_MONOTONIC 1 // for clock_gettime
 
+/**
+ *  \brief Gets the time elapsed since the last call to this function.
+ *
+ *  \return time elapsed in seconds
+ */
 static double get_delta_time(void) {
     static struct timespec t0, t1;
     
@@ -22,6 +38,17 @@ static double get_delta_time(void) {
     return (double) (t1.tv_sec - t0.tv_sec) + 1.0e-9 * (double) (t1.tv_nsec - t0.tv_nsec);
 }
 
+
+/**
+ *  \brief Worker thread function that executes tasks.
+ *
+ *  Lifecycle loop:
+ * - retrieve a chunk of data
+ * - process the chunk
+ * - save the partial results
+ * 
+ * \param id pointer to the worker id
+ */
 void *worker(void *id) {
     uint8_t workerId = *((uint8_t *)id);
 
@@ -62,6 +89,20 @@ void *worker(void *id) {
     return (void*) EXIT_SUCCESS;
 }
 
+/**
+ *  \brief Main function.
+ *
+ *  Lifecycle:
+ * - process command line options
+ * - allocate memory for the shared area
+ * - create worker threads
+ * - wait for threads to finish
+ * - print the final results
+ *
+ *  \param argc number of arguments
+ *  \param argv array of arguments
+ *  \return EXIT_SUCCESS if the program runs successfully, EXIT_FAILURE otherwise
+ */
 int main(int argc, char *argv[]) {
     // program arguments
     char *cmd_name = argv[0];
@@ -110,7 +151,7 @@ int main(int argc, char *argv[]) {
 
     get_delta_time();
 
-    allocateSharedData(nFiles, fileNames);
+    initSharedData(nFiles, fileNames);
 
     // create nThreads threads
     for (int i = 0; i < nThreads; i++) {

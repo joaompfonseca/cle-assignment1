@@ -21,7 +21,9 @@ File name: data/text4.txt
 Total number of words: 9914
 Total number of words with at least two instances of the same consonant: 1322
 
-Elapsed time: 0.004752
+Elapsed time: 0.005036
+
+
 Number of files: 5
 Number of workers: 2
 
@@ -45,7 +47,9 @@ File name: data/text4.txt
 Total number of words: 9914
 Total number of words with at least two instances of the same consonant: 1322
 
-Elapsed time: 0.002041
+Elapsed time: 0.002341
+
+
 Number of files: 5
 Number of workers: 4
 
@@ -69,7 +73,9 @@ File name: data/text4.txt
 Total number of words: 9914
 Total number of words with at least two instances of the same consonant: 1322
 
-Elapsed time: 0.001256
+Elapsed time: 0.001141
+
+
 Number of files: 5
 Number of workers: 8
 
@@ -93,4 +99,4 @@ File name: data/text4.txt
 Total number of words: 9914
 Total number of words with at least two instances of the same consonant: 1322
 
-Elapsed time: 0.001036
+Elapsed time: 0.001084
