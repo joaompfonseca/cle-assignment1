@@ -3,7 +3,7 @@
  *
  *  \brief Assignment 1.2: multithreaded bitonic sort.
  *
- *  This file contains the definition of the shared area with the final results and a worker internal data structure to store the partial results.
+ *  This file contains the declaration of the shared area with the final results and a worker internal data structure to store the partial results.
  *  Furthermore, it contains the operations to allocate the shared data, retrieve a chunk, save the partial results, and print the final ones.
  *
  *  \author João Fonseca - March 2024
@@ -110,7 +110,6 @@ void retrieveData(uint8_t workerId, struct ChunkData *chunkData) {
         pthread_exit(NULL);
     }
 }
-
 
 /** \brief Saves the partial results of a chunk in the shared data, guaranteeing mutual exclusion.
  *

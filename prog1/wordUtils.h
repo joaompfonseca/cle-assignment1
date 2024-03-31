@@ -20,7 +20,7 @@
 #define MAX_CHAR_LENGTH 5 // max number of bytes of a UTF-8 character + null terminator
 #define CONSONANTS "bcdfghjklmnpqrstvwxyz"
 
-/** \brief Array that stores the meaning of each character (1. start of word, 2. not allowed in word, 3. allowed in word) */
+/** \brief Array that stores the meaning of each single-byte character (1. start of the word, 2. single-byte delimiter) */
 extern int charMeaning[256];
 
 /**
